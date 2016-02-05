@@ -89,28 +89,40 @@ class MasterNode(object):
                      'Exit code: {exit_code}.')
             raise RuntimeError(error.format(cmd=command, exit_code=exit_code))
 
-    def download(self, env_id=1):
-        command = self.command.format(subcommand='network', env_id=env_id,
+    def download(self, subcommand, env_id=1):
+        command = self.command.format(subcommand=subcommand, env_id=env_id,
                                       action='--download')
         self.__exec(command)
 
-        yamlfile = 'network_{}.yaml'.format(env_id)
+        yamlfile = '{}_{}.yaml'.format(subcommand, env_id)
         src = os.path.join('/root', yamlfile)
         dest = os.path.join(self.tmpdir, yamlfile)
 
         self.sftp.get(src, dest)
 
-    def upload(self, env_id=1):
-        yamlfile = 'network_{}.yaml'.format(env_id)
+    def upload(self, subcommand, env_id=1):
+        yamlfile = '{}_{}.yaml'.format(subcommand, env_id)
         src = os.path.join(self.tmpdir, yamlfile)
         dest = os.path.join('/root', yamlfile)
 
         self.sftp.put(src, dest)
 
-        command = self.command.format(subcommand='network', env_id=env_id,
+        command = self.command.format(subcommand=subcommand, env_id=env_id,
                                       action='--upload')
         self.__exec(command)
 
+    def verify(self, env_id=1):
+        command = self.command.format(subcommand='network', env_id=env_id,
+                                      action='--verify')
+        self.__exec(command)
+
+    def close(self):
+        self.sftp.close()
+        self.transport.close()
+        shutil.rmtree(self.tmpdir)
+
+
+class MasterNodeNetwork(MasterNode):
     def update_yaml(self, networks, yamlfile):
         fuel_networks = frozenset(['public', 'management', 'storage',
                                   'private'])
@@ -151,21 +163,12 @@ class MasterNode(object):
 
     def update(self, env_id, networks):
         yamlfile = os.path.join(self.tmpdir, 'network_{}.yaml'.format(env_id))
+        subcommand = 'network'
 
-        self.download(env_id)
+        self.download(subcommand, env_id)
         self.update_yaml(networks, yamlfile)
-        self.upload(env_id)
+        self.upload(subcommand, env_id)
         self.verify(env_id)
-
-    def verify(self, env_id=1):
-        command = self.command.format(subcommand='network', env_id=env_id,
-                                      action='--verify')
-        self.__exec(command)
-
-    def close(self):
-        self.sftp.close()
-        self.transport.close()
-        shutil.rmtree(self.tmpdir)
 
 
 if __name__ == '__main__':
@@ -178,7 +181,7 @@ if __name__ == '__main__':
 
     networks = get_env_networks(args.environment_name)
     master_node_address = cidr_to_iprange(networks['admin'], start=2)[0]
-    master_node = MasterNode(master_node_address)
+    master_node = MasterNodeNetwork(master_node_address)
 
     master_node.update(args.id, networks)
     master_node.close()
