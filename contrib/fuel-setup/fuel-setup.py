@@ -184,10 +184,10 @@ class MasterNodeRepo(MasterNode):
             settings = yaml.safe_load(f)
 
         for repo in settings['editable']['repo_setup']['repos']['value']:
-            if repo['name'].startswith('ubuntu'):
+            if self.repo_ubuntu and repo['name'].startswith('ubuntu'):
                 repo['uri'] = self.repo_ubuntu
 
-            if repo['name'].startswith('mos'):
+            if self.repo_mos and repo['name'].startswith('mos'):
                 repo['uri'] = self.repo_mos
 
         with open(yamlfile, 'w') as f:
