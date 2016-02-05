@@ -159,16 +159,48 @@ class MasterNodeNetwork(MasterNode):
                 network['ip_ranges'] = [iprange]
 
         with open(yamlfile, 'w') as f:
-            yaml.safe_dump(cluster, f, default_flow_style=False)
+            yaml.safe_dump(cluster, f)
 
     def update(self, env_id, networks):
-        yamlfile = os.path.join(self.tmpdir, 'network_{}.yaml'.format(env_id))
         subcommand = 'network'
+        yamlfile = os.path.join(self.tmpdir, '{}_{}.yaml'.format(subcommand,
+                                                                 env_id))
 
         self.download(subcommand, env_id)
         self.update_yaml(networks, yamlfile)
         self.upload(subcommand, env_id)
-        self.verify(env_id)
+
+
+class MasterNodeRepo(MasterNode):
+    def __init__(self, ipaddress, port=22, username='root', password='r00tme',
+                 repo_ubuntu=False, repo_mos=False):
+        super(MasterNode, self).__init(self.ipaddress, self.port,
+                                       self.username, self.password)
+        self.repo_ubuntu = os.environ.get('UBUNTU_LATEST', False)
+        self.repo_mos = os.environ.get('MOS_REPOS', False)
+
+    def update_yaml(self, yamlfile):
+        with open(yamlfile, 'r') as f:
+            settings = yaml.safe_load(f)
+
+        for repo in settings['editable']['repo_setup']['repos']['value']:
+            if repo['name'].startswith('ubuntu'):
+                repo['uri'] = self.repo_ubuntu
+
+            if repo['name'].startswith('mos'):
+                repo['uri'] = self.repo_mos
+
+        with open(yamlfile, 'w') as f:
+            yaml.safe_dump(settings, f)
+
+    def update(self, env_id, repo_ubuntu, repo_mos):
+        subcommand = 'network'
+        yamlfile = os.path.join(self.tmpdir, '{}_{}.yaml'.format(subcommand,
+                                                                 env_id))
+
+        self.download(subcommand, env_id)
+        self.update_yaml(networks, repo_ubuntu, repo_mos, yamlfile)
+        self.upload(subcommand, env_id)
 
 
 if __name__ == '__main__':
